@@ -13,7 +13,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
-_db_url = os.environ.get('DATABASE_URL', 'sqlite:///todo.db')
+_db_url = os.environ.get('DATABASE_URL', 'sqlite:////tmp/todo.db')
 if _db_url.startswith('postgres://'):
     _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
 
@@ -342,8 +342,11 @@ def logout():
     return redirect(url_for('landing'))
 
 
-with app.app_context():
-    db.create_all()
+try:
+    with app.app_context():
+        db.create_all()
+except Exception:
+    pass
 
 if __name__ == '__main__':
     app.run(debug=False)
