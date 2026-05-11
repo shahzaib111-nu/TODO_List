@@ -1,0 +1,292 @@
+{% extends 'app_base.html' %}
+{% block title %}Profile — Taskify{% endblock %}
+
+{% block head_extra %}
+<style>
+  .profile-grid {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+  }
+
+  /* Identity card */
+  .identity-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 28px 24px;
+    box-shadow: var(--sh);
+    text-align: center;
+  }
+  .profile-avatar {
+    width: 72px; height: 72px;
+    background: var(--p-light);
+    color: var(--p);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem; font-weight: 800;
+    margin: 0 auto 16px;
+    border: 3px solid var(--surface);
+    box-shadow: 0 0 0 3px var(--p), 0 4px 16px var(--p-glow);
+  }
+  .profile-name { font-size: 1.2rem; font-weight: 800; color: var(--txt); letter-spacing: -.3px; }
+  .profile-role { font-size: .8rem; color: var(--txt-muted); margin-top: 3px; }
+  .profile-since {
+    margin-top: 18px; padding-top: 18px;
+    border-top: 1px solid var(--border);
+    font-size: .8rem; color: var(--txt-sub);
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+
+  /* Stats cards */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .s-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 18px 20px;
+    box-shadow: var(--sh);
+    display: flex; align-items: center; gap: 14px;
+  }
+  .s-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; flex-shrink: 0;
+  }
+  .s-val { font-size: 1.6rem; font-weight: 800; line-height: 1; letter-spacing: -.4px; }
+  .s-lbl { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--txt-muted); margin-top: 3px; }
+
+  /* Priority breakdown */
+  .breakdown-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 20px 22px;
+    box-shadow: var(--sh);
+  }
+  .breakdown-title { font-size: .875rem; font-weight: 700; margin-bottom: 18px; color: var(--txt); }
+  .pri-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .pri-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .pri-label { font-size: .82rem; font-weight: 600; color: var(--txt-sub); width: 60px; }
+  .pri-bar-wrap { flex: 1; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .pri-bar { height: 100%; border-radius: 99px; transition: width .7s cubic-bezier(.4,0,.2,1); }
+  .pri-count { font-size: .8rem; font-weight: 700; color: var(--txt-muted); width: 24px; text-align: right; }
+
+  /* Completion ring */
+  .ring-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 20px;
+    box-shadow: var(--sh);
+    display: flex; align-items: center; gap: 20px;
+  }
+  .ring-wrap { position: relative; flex-shrink: 0; }
+  .ring-wrap svg { display: block; }
+  .ring-pct {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; font-weight: 800; color: var(--txt);
+  }
+  .ring-info-title { font-size: .95rem; font-weight: 700; color: var(--txt); margin-bottom: 6px; }
+  .ring-info-sub   { font-size: .82rem; color: var(--txt-sub); line-height: 1.6; }
+
+  /* Recent tasks */
+  .recent-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 20px 22px;
+    box-shadow: var(--sh);
+    margin-top: 12px;
+  }
+  .recent-title { font-size: .875rem; font-weight: 700; margin-bottom: 14px; color: var(--txt); }
+  .recent-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: .84rem;
+  }
+  .recent-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .recent-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .recent-name { flex: 1; color: var(--txt); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .recent-date { color: var(--txt-muted); font-size: .75rem; flex-shrink: 0; }
+
+  /* ── Responsive ─────────────────────────────────────────────── */
+
+  /* Tablet: stack profile grid */
+  @media (max-width: 900px) {
+    .profile-grid { grid-template-columns: 1fr; }
+    .identity-card { max-width: 500px; margin: 0 auto; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* Large phone landscape */
+  @media (max-width: 640px) {
+    .s-card { padding: 14px 16px; gap: 10px; }
+    .s-icon { width: 36px; height: 36px; font-size: .9rem; }
+    .s-val  { font-size: 1.4rem; }
+
+    /* Ring card: stack vertically */
+    .ring-card { flex-direction: column; text-align: center; padding: 20px 16px; }
+    .ring-wrap  { margin: 0 auto; }
+
+    .breakdown-card { padding: 18px 16px; }
+  }
+
+  /* Small phone */
+  @media (max-width: 480px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .s-card    { padding: 12px 14px; flex-direction: column; align-items: flex-start; gap: 8px; }
+    .s-icon    { width: 32px; height: 32px; font-size: .85rem; }
+    .s-val     { font-size: 1.3rem; }
+
+    .profile-avatar { width: 60px; height: 60px; font-size: 1.5rem; }
+    .profile-name   { font-size: 1.05rem; }
+
+    .pri-label { width: 46px; font-size: .76rem; }
+    .recent-card { padding: 16px; }
+  }
+
+  /* Extra small */
+  @media (max-width: 360px) {
+    .stat-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h1 class="page-title">Profile</h1>
+  <p class="page-sub">Your productivity overview and account details.</p>
+</div>
+
+<div class="profile-grid fade-up">
+
+  <!-- Left: identity -->
+  <div>
+    <div class="identity-card">
+      <div class="profile-avatar">{{ current_user.username[0].upper() }}</div>
+      <div class="profile-name">{{ current_user.username }}</div>
+      <div class="profile-role">Taskify Member</div>
+      <div class="profile-since">
+        <i class="bi bi-calendar3"></i>
+        Member since {{ current_user.created_at.strftime('%B %Y') }}
+      </div>
+    </div>
+
+    <!-- Priority breakdown -->
+    <div class="breakdown-card" style="margin-top:12px">
+      <div class="breakdown-title">Priority breakdown</div>
+      {% set bar_max = [high, medium, low, 1] | max %}
+      <div class="pri-row">
+        <div class="pri-dot" style="background:#ef4444"></div>
+        <span class="pri-label">High</span>
+        <div class="pri-bar-wrap">
+          <div class="pri-bar" style="width:{{ ((high / bar_max) * 100)|int }}%;background:#ef4444"></div>
+        </div>
+        <span class="pri-count">{{ high }}</span>
+      </div>
+      <div class="pri-row">
+        <div class="pri-dot" style="background:#eab308"></div>
+        <span class="pri-label">Medium</span>
+        <div class="pri-bar-wrap">
+          <div class="pri-bar" style="width:{{ ((medium / bar_max) * 100)|int }}%;background:#eab308"></div>
+        </div>
+        <span class="pri-count">{{ medium }}</span>
+      </div>
+      <div class="pri-row" style="margin-bottom:0">
+        <div class="pri-dot" style="background:#22c55e"></div>
+        <span class="pri-label">Low</span>
+        <div class="pri-bar-wrap">
+          <div class="pri-bar" style="width:{{ ((low / bar_max) * 100)|int }}%;background:#22c55e"></div>
+        </div>
+        <span class="pri-count">{{ low }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: stats + ring + recent -->
+  <div>
+    <!-- Stat cards -->
+    <div class="stat-grid">
+      <div class="s-card">
+        <div class="s-icon" style="background:var(--p-light);color:var(--p)"><i class="bi bi-list-task"></i></div>
+        <div>
+          <div class="s-val" style="color:var(--p)">{{ total }}</div>
+          <div class="s-lbl">All tasks</div>
+        </div>
+      </div>
+      <div class="s-card">
+        <div class="s-icon" style="background:rgba(34,197,94,.12);color:#16a34a"><i class="bi bi-check2-all"></i></div>
+        <div>
+          <div class="s-val" style="color:#22c55e">{{ done }}</div>
+          <div class="s-lbl">Completed</div>
+        </div>
+      </div>
+      <div class="s-card">
+        <div class="s-icon" style="background:rgba(234,179,8,.12);color:#ca8a04"><i class="bi bi-hourglass-split"></i></div>
+        <div>
+          <div class="s-val" style="color:#eab308">{{ active }}</div>
+          <div class="s-lbl">Active</div>
+        </div>
+      </div>
+      <div class="s-card">
+        <div class="s-icon" style="background:rgba(59,130,246,.12);color:#2563eb"><i class="bi bi-calendar-week"></i></div>
+        <div>
+          <div class="s-val" style="color:#3b82f6">{{ this_week }}</div>
+          <div class="s-lbl">This week</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Completion ring -->
+    <div class="ring-card">
+      <div class="ring-wrap">
+        {% set r = 40 %}
+        {% set circ = (2 * 3.14159 * r)|round(2) %}
+        {% set dash = ((rate / 100) * circ)|round(2) %}
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="{{ r }}" fill="none" stroke="var(--border)" stroke-width="8"/>
+          <circle cx="50" cy="50" r="{{ r }}" fill="none" stroke="var(--p)" stroke-width="8"
+                  stroke-linecap="round"
+                  stroke-dasharray="{{ dash }} {{ circ }}"
+                  stroke-dashoffset="{{ circ / 4 }}"
+                  style="transition:stroke-dasharray .7s ease"/>
+        </svg>
+        <div class="ring-pct">{{ rate }}%</div>
+      </div>
+      <div>
+        <div class="ring-info-title">Completion rate</div>
+        <div class="ring-info-sub">
+          {% if rate == 100 %}Outstanding — all tasks completed!
+          {% elif rate >= 75 %}Great progress — nearly there.
+          {% elif rate >= 50 %}Halfway through. Keep going.
+          {% elif total == 0 %}Add tasks to start tracking progress.
+          {% else %}Getting started — you've got this.{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent tasks -->
+    {% if recent %}
+    <div class="recent-card">
+      <div class="recent-title">Recently added</div>
+      {% for t in recent %}
+      <div class="recent-item">
+        <div class="recent-dot"
+             style="background:{% if t.priority == 'high' %}#ef4444{% elif t.priority == 'medium' %}#eab308{% else %}#22c55e{% endif %}">
+        </div>
+        <span class="recent-name">{{ t.title }}</span>
+        <span class="recent-date">{{ t.date_created.strftime('%b %d') }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}

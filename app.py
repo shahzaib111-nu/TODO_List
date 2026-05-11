@@ -1,144 +1,309 @@
+import os
+import secrets
+from datetime import datetime, timedelta, timezone
 
+def utcnow():
+    return datetime.now(timezone.utc)
 
-
-from flask import Flask, render_template, request, redirect, url_for, abort, flash
-from datetime import datetime
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_login import (LoginManager, UserMixin, login_user,
+                         login_required, logout_user, current_user)
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Flask app setup
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///todo.db'
-app.config['SECRET_KEY'] = 'your_secret_key'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Initialize extensions
+_db_url = os.environ.get('DATABASE_URL', 'sqlite:///todo.db')
+if _db_url.startswith('postgres://'):
+    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+
+app.config.update(
+    SECRET_KEY=os.environ.get('SECRET_KEY') or secrets.token_hex(32),
+    SQLALCHEMY_DATABASE_URI=_db_url,
+    SQLALCHEMY_TRACK_MODIFICATIONS=False,
+)
+
 db = SQLAlchemy(app)
-login_manager = LoginManager()
-login_manager.init_app(app)
+login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+login_manager.login_message = 'Please sign in to continue.'
+login_manager.login_message_category = 'warning'
 
-# User model
-class User(db.Model, UserMixin):
+
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(150), unique=True, nullable=False)
-    password = db.Column(db.String(150), nullable=False)
-    todos = db.relationship('TodoItem', backref='owner', lazy=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    todos = db.relationship('TodoItem', backref='user', lazy=True,
+                            cascade='all, delete-orphan')
 
-# Todo model
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+
 class TodoItem(db.Model):
-    sr = db.Column(db.Integer, primary_key=True)
+    __tablename__ = 'todos'
+    id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.String(500), nullable=False)
-    date_created = db.Column(db.DateTime, default=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    completed = db.Column(db.Boolean, default=False, nullable=False)
+    priority = db.Column(db.String(10), default='medium', nullable=False)
+    date_created = db.Column(db.DateTime, default=utcnow)
+    date_updated = db.Column(db.DateTime, default=utcnow,
+                             onupdate=utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
-# User loader for Flask-Login
+
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
-# Home / Dashboard
-@app.route("/", methods=["GET", "POST"])
+
+@app.context_processor
+def inject_globals():
+    return {'now': utcnow()}
+
+
+# ── Public ──────────────────────────────────────────────────────────────────
+
+@app.route('/')
+def landing():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    return redirect(url_for('login'))
+
+
+@app.route('/welcome')
+def welcome():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    return render_template('landing.html')
+
+
+# ── App (authenticated) ──────────────────────────────────────────────────────
+
+@app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
-def render():
-    if request.method == "POST":
-        title = request.form.get("title")
-        description = request.form.get("description")
-        todo = TodoItem(title=title, description=description, owner=current_user)
-        db.session.add(todo)
-        db.session.commit()
-        flash("TODO added successfully!", "success")
-    todo_items = TodoItem.query.filter_by(user_id=current_user.id).all()
-    return render_template("index.html", todo_items=todo_items)
-
-# Show route (duplicate of home)
-@app.route("/show")
-@login_required
-def show():
-    todo_items = TodoItem.query.filter_by(user_id=current_user.id).all()
-    return render_template("index.html", todo_items=todo_items)
-
-# About
-@app.route("/about")
-def about():
-    return render_template("about.html")
-
-# Delete Todo
-@app.route("/delete/<int:id>")
-@login_required
-def delete(id):
-    todo_item = TodoItem.query.filter_by(sr=id, user_id=current_user.id).first()
-    if not todo_item:
-        abort(404)
-    db.session.delete(todo_item)
-    db.session.commit()
-    flash("TODO deleted!", "danger")
-    return redirect("/")
-
-# Edit Todo
-@app.route('/edit/<int:id>', methods=['GET', 'POST'])
-@login_required
-def edit(id):
-    todo_item = TodoItem.query.filter_by(sr=id, user_id=current_user.id).first()
-    if not todo_item:
-        abort(404)
+def index():
     if request.method == 'POST':
-        todo_item.title = request.form.get('title')
-        todo_item.description = request.form.get('description')
-        db.session.commit()
-        flash("TODO updated!", "info")
-        return redirect("/")
-    return render_template("edit.html", todo_item=todo_item)
+        title = request.form.get('title', '').strip()
+        description = request.form.get('description', '').strip()
+        priority = request.form.get('priority', 'medium')
 
-# Register
+        if not title:
+            flash('Task title cannot be empty.', 'danger')
+            return redirect(url_for('index'))
+        if len(title) > 200:
+            flash('Title must be under 200 characters.', 'danger')
+            return redirect(url_for('index'))
+        if priority not in ('low', 'medium', 'high'):
+            priority = 'medium'
+
+        db.session.add(TodoItem(
+            title=title, description=description,
+            priority=priority, user_id=current_user.id
+        ))
+        db.session.commit()
+        flash('Task created.', 'success')
+        return redirect(url_for('index'))
+
+    search = request.args.get('q', '').strip()
+    status_filter = request.args.get('s', 'all')
+
+    query = TodoItem.query.filter_by(user_id=current_user.id)
+    if search:
+        query = query.filter(db.or_(
+            TodoItem.title.ilike(f'%{search}%'),
+            TodoItem.description.ilike(f'%{search}%'),
+        ))
+    if status_filter == 'active':
+        query = query.filter_by(completed=False)
+    elif status_filter == 'done':
+        query = query.filter_by(completed=True)
+
+    todos = query.order_by(
+        TodoItem.completed.asc(), TodoItem.date_created.desc()
+    ).all()
+
+    base = TodoItem.query.filter_by(user_id=current_user.id)
+    total = base.count()
+    done = base.filter_by(completed=True).count()
+
+    return render_template('dashboard.html',
+                           todos=todos, total=total,
+                           done=done, active=total - done,
+                           search=search, sf=status_filter)
+
+
+@app.route('/toggle/<int:tid>')
+@login_required
+def toggle(tid):
+    todo = db.get_or_404(TodoItem, tid)
+    if todo.user_id != current_user.id:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('index'))
+    todo.completed = not todo.completed
+    db.session.commit()
+    return redirect(url_for('index'))
+
+
+@app.route('/delete/<int:tid>')
+@login_required
+def delete(tid):
+    todo = db.get_or_404(TodoItem, tid)
+    if todo.user_id != current_user.id:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('index'))
+    db.session.delete(todo)
+    db.session.commit()
+    flash('Task deleted.', 'success')
+    return redirect(url_for('index'))
+
+
+@app.route('/edit/<int:tid>', methods=['GET', 'POST'])
+@login_required
+def edit(tid):
+    todo = db.get_or_404(TodoItem, tid)
+    if todo.user_id != current_user.id:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        description = request.form.get('description', '').strip()
+        priority = request.form.get('priority', 'medium')
+
+        if not title:
+            flash('Title cannot be empty.', 'danger')
+            return redirect(url_for('edit', tid=tid))
+        if priority not in ('low', 'medium', 'high'):
+            priority = 'medium'
+
+        todo.title = title
+        todo.description = description
+        todo.priority = priority
+        todo.date_updated = utcnow()
+        db.session.commit()
+        flash('Task updated.', 'success')
+        return redirect(url_for('index'))
+
+    return render_template('edit.html', todo=todo)
+
+
+@app.route('/clear-done', methods=['POST'])
+@login_required
+def clear_done():
+    n = TodoItem.query.filter_by(user_id=current_user.id, completed=True).delete()
+    db.session.commit()
+    flash(f'{n} completed task(s) removed.', 'success')
+    return redirect(url_for('index'))
+
+
+@app.route('/profile')
+@login_required
+def profile():
+    base = TodoItem.query.filter_by(user_id=current_user.id)
+    total = base.count()
+    done = base.filter_by(completed=True).count()
+    active = total - done
+    rate = int((done / total * 100)) if total else 0
+
+    week_ago = utcnow() - timedelta(days=7)
+    this_week = TodoItem.query.filter(
+        TodoItem.user_id == current_user.id,
+        TodoItem.date_created >= week_ago
+    ).count()
+
+    high = base.filter_by(priority='high').count()
+    medium = base.filter_by(priority='medium').count()
+    low = base.filter_by(priority='low').count()
+
+    recent = (TodoItem.query
+              .filter_by(user_id=current_user.id)
+              .order_by(TodoItem.date_created.desc())
+              .limit(5).all())
+
+    return render_template('profile.html',
+                           total=total, done=done, active=active,
+                           rate=rate, this_week=this_week,
+                           high=high, medium=medium, low=low,
+                           recent=recent)
+
+
+# ── Auth ─────────────────────────────────────────────────────────────────────
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        if User.query.filter_by(username=username).first():
-            flash("Username already exists", "warning")
-            return redirect('/register')
-        hashed_password = generate_password_hash(password)
-        user = User(username=username, password=hashed_password)
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        confirm = request.form.get('confirm_password', '')
+
+        errors = []
+        if len(username) < 3:
+            errors.append('Username must be at least 3 characters.')
+        if len(password) < 8:
+            errors.append('Password must be at least 8 characters.')
+        if password != confirm:
+            errors.append('Passwords do not match.')
+        if not errors and User.query.filter_by(username=username).first():
+            errors.append('Username already taken.')
+
+        for e in errors:
+            flash(e, 'danger')
+        if errors:
+            return redirect(url_for('register'))
+
+        user = User(username=username)
+        user.set_password(password)
         db.session.add(user)
         db.session.commit()
         login_user(user)
-        return redirect("/")
-    return render_template("register.html")
+        flash(f'Welcome, {username}!', 'success')
+        return redirect(url_for('index'))
 
-# Login
+    return render_template('register.html')
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        remember = bool(request.form.get('remember'))
+
         user = User.query.filter_by(username=username).first()
-        print("Form Username:", username)
-        print("User from DB:", user)
+        if user and user.check_password(password):
+            login_user(user, remember=remember)
+            next_page = request.args.get('next')
+            flash(f'Welcome back, {username}.', 'success')
+            return redirect(next_page or url_for('index'))
 
-        if user and check_password_hash(user.password, password):
-            login_user(user)
-            return redirect("/")
-        else:
-            flash("Invalid credentials", "danger")
-            return redirect('/login')
-    return render_template("login.html")
+        flash('Invalid username or password.', 'danger')
 
-# Logout
+    return render_template('login.html')
+
+
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    flash("You have been logged out", "info")
-    return redirect("/login")
+    return redirect(url_for('landing'))
 
-# DB init
-if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True)
-# Note: Make sure to set a strong secret key in production.
 
+with app.app_context():
+    db.create_all()
+
+if __name__ == '__main__':
+    app.run(debug=False)

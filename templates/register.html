@@ -1,30 +1,60 @@
-{% extends "base.html" %}
-{% block body %}
-<div class="container mt-5">
-  <div class="row justify-content-center">
-    <div class="col-md-6">
-      <div class="card shadow-lg border-0">
-        <div class="card-header bg-primary text-white text-center">
-          <h4 class="mb-0">Create a new account</h4>
-        </div>
-        <div class="card-body p-4">
-          <form method="POST" action="{{ url_for('register') }}">
-            <div class="mb-3">
-              <label for="username" class="form-label">Username</label>
-              <input type="text" name="username" class="form-control" id="username" required>
-            </div>
-            <div class="mb-3">
-              <label for="password" class="form-label">Password</label>
-              <input type="password" name="password" class="form-control" id="password" required>
-            </div>
-            <div class="d-grid">
-              <button type="submit" class="btn btn-success">Register</button>
-            </div>
-            <p class="text-center mt-3 mb-0">Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
-          </form>
-        </div>
-      </div>
-    </div>
-  </div>
+{% extends 'auth_base.html' %}
+{% block title %}Create account — Taskify{% endblock %}
+
+{% block content %}
+
+<div class="auth-form-header">
+  <h1 class="auth-form-title">Create account</h1>
+  <p class="auth-form-sub">Start managing tasks beautifully — it's free.</p>
 </div>
+
+<div class="auth-card">
+  <form method="POST" action="{{ url_for('register') }}" id="regForm" novalidate>
+
+    <div class="field">
+      <label>Username</label>
+      <input type="text" name="username" class="input"
+             placeholder="At least 3 characters"
+             required minlength="3" maxlength="80"
+             autocomplete="username">
+    </div>
+
+    <div class="field">
+      <label>Password</label>
+      <input type="password" name="password" id="pw" class="input"
+             placeholder="At least 8 characters"
+             required minlength="8"
+             autocomplete="new-password">
+    </div>
+
+    <div class="field" style="margin-bottom:24px">
+      <label>Confirm password</label>
+      <input type="password" name="confirm_password" id="cpw" class="input"
+             placeholder="Repeat your password"
+             required
+             autocomplete="new-password">
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-w">
+      Create account <i class="bi bi-arrow-right"></i>
+    </button>
+
+  </form>
+</div>
+
+<div class="auth-link-row">
+  Already have an account? <a href="{{ url_for('login') }}">Sign in</a>
+</div>
+
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  document.getElementById('regForm').addEventListener('submit', function(e) {
+    if (document.getElementById('pw').value !== document.getElementById('cpw').value) {
+      e.preventDefault();
+      alert('Passwords do not match.');
+    }
+  });
+</script>
 {% endblock %}

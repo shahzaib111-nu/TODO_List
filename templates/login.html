@@ -1,30 +1,45 @@
-{% extends "base.html" %}
-{% block body %}
-<div class="container mt-5">
-  <div class="row justify-content-center">
-    <div class="col-md-6">
-      <div class="card shadow-lg border-0">
-        <div class="card-header bg-dark text-white text-center">
-          <h4 class="mb-0">Login to your account</h4>
-        </div>
-        <div class="card-body p-4">
-          <form method="POST" action="{{ url_for('login') }}">
-            <div class="mb-3">
-              <label for="username" class="form-label">Username</label>
-              <input type="text" name="username" class="form-control" id="username" required>
-            </div>
-            <div class="mb-3">
-              <label for="password" class="form-label">Password</label>
-              <input type="password" name="password" class="form-control" id="password" required>
-            </div>
-            <div class="d-grid">
-              <button type="submit" class="btn btn-primary">Login</button>
-            </div>
-            <p class="text-center mt-3 mb-0">Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
-          </form>
-        </div>
-      </div>
-    </div>
-  </div>
+{% extends 'auth_base.html' %}
+{% block title %}Sign in — Taskify{% endblock %}
+
+{% block content %}
+
+<div class="auth-form-header">
+  <h1 class="auth-form-title">Welcome back</h1>
+  <p class="auth-form-sub">Sign in to your Taskify workspace.</p>
 </div>
+
+<div class="auth-card">
+  <form method="POST" action="{{ url_for('login') }}" novalidate>
+
+    <div class="field">
+      <label>Username</label>
+      <input type="text" name="username" class="input"
+             placeholder="Your username"
+             required autocomplete="username">
+    </div>
+
+    <div class="field" style="margin-bottom:8px">
+      <label>Password</label>
+      <input type="password" name="password" class="input"
+             placeholder="Your password"
+             required autocomplete="current-password">
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:22px">
+      <input type="checkbox" name="remember" id="rem"
+             style="width:15px;height:15px;accent-color:var(--p);cursor:pointer">
+      <label for="rem" style="font-size:.84rem;color:var(--txt-sub);cursor:pointer;font-weight:500">Keep me signed in</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-w">
+      Sign in <i class="bi bi-arrow-right"></i>
+    </button>
+
+  </form>
+</div>
+
+<div class="auth-link-row">
+  Don't have an account? <a href="{{ url_for('register') }}">Create one free</a>
+</div>
+
 {% endblock %}

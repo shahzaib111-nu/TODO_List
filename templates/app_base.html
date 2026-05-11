@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+
+{% block base_extra_css %}
+  /* ── App layout ─────────────────────────────────────────────── */
+  .app-wrap { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    position: fixed; top: 0; left: 0; bottom: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    z-index: 200;
+    overflow-y: auto;
+    transition: transform .3s cubic-bezier(.4,0,.2,1);
+  }
+  .sidebar-brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 22px 20px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .brand-mark {
+    width: 32px; height: 32px;
+    background: var(--p);
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 1rem; flex-shrink: 0;
+    box-shadow: 0 4px 12px var(--p-glow);
+  }
+  .brand-name {
+    font-size: 1.1rem; font-weight: 800;
+    color: var(--txt); letter-spacing: -.3px;
+  }
+
+  .sidebar-nav { flex: 1; padding: 16px 12px; }
+  .nav-label {
+    font-size: .68rem; font-weight: 700; letter-spacing: .8px;
+    text-transform: uppercase; color: var(--txt-muted);
+    padding: 0 8px; margin-bottom: 6px; margin-top: 16px;
+  }
+  .nav-label:first-child { margin-top: 0; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 10px;
+    border-radius: var(--r-sm);
+    font-size: .875rem; font-weight: 500;
+    color: var(--txt-sub);
+    cursor: pointer;
+    text-decoration: none;
+    transition: all var(--trans);
+    margin-bottom: 2px;
+  }
+  .nav-item i { font-size: 1rem; width: 18px; text-align: center; flex-shrink: 0; }
+  .nav-item:hover { background: var(--surface2); color: var(--txt); }
+  .nav-item.active {
+    background: var(--p-light); color: var(--p);
+    font-weight: 600;
+  }
+  .nav-item .nav-count {
+    margin-left: auto;
+    background: var(--surface2);
+    color: var(--txt-muted);
+    font-size: .7rem; font-weight: 700;
+    padding: 1px 7px; border-radius: 99px;
+  }
+  .nav-item.active .nav-count {
+    background: var(--p-glow); color: var(--p);
+  }
+
+  .sidebar-footer {
+    padding: 14px 12px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-user {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    position: relative;
+  }
+  .user-avatar {
+    width: 32px; height: 32px;
+    background: var(--p-light);
+    color: var(--p);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .8rem; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .user-name { font-size: .875rem; font-weight: 600; color: var(--txt); }
+  .user-role { font-size: .75rem; color: var(--txt-muted); }
+  .sidebar-logout {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--r-sm);
+    font-size: .84rem; font-weight: 500;
+    color: var(--txt-muted);
+    text-decoration: none;
+    margin-top: 4px;
+    transition: all var(--trans);
+  }
+  .sidebar-logout:hover { background: rgba(239,68,68,.08); color: var(--danger); }
+
+  /* Main panel */
+  .main-panel {
+    flex: 1;
+    margin-left: var(--sidebar-w);
+    display: flex; flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* Topbar (mobile) */
+  .topbar {
+    display: none;
+    align-items: center;
+    padding: 0 16px;
+    height: var(--topbar-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+    flex-shrink: 0;
+  }
+  .topbar-brand {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 1rem; font-weight: 800; color: var(--txt);
+    text-decoration: none; letter-spacing: -.3px;
+  }
+
+  /* Page content */
+  .page-content { flex: 1; padding: 28px 32px; }
+  .page-header { margin-bottom: 28px; }
+  .page-title  { font-size: 1.5rem; font-weight: 800; color: var(--txt); letter-spacing: -.4px; }
+  .page-sub    { font-size: .875rem; color: var(--txt-sub); margin-top: 3px; }
+
+  /* Theme toggle button */
+  .theme-toggle {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--txt-sub);
+    width: 34px; height: 34px;
+    border-radius: var(--r-sm);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: .95rem;
+    transition: all var(--trans); flex-shrink: 0;
+  }
+  .theme-toggle:hover { color: var(--txt); border-color: var(--border2); }
+
+  /* Sidebar mobile overlay */
+  .sidebar-overlay {
+    display: none;
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    z-index: 199; backdrop-filter: blur(2px);
+  }
+
+  /* ── Responsive ─────────────────────────────────────────────── */
+
+  /* Tablet & mobile: hide sidebar, show topbar */
+  @media (max-width: 991px) {
+    .sidebar { transform: translateX(-100%); box-shadow: none; }
+    .sidebar.open { transform: translateX(0); box-shadow: var(--sh-xl); }
+    .sidebar-overlay.open { display: block; }
+    .main-panel { margin-left: 0; }
+    .topbar { display: flex; }
+    .page-content { padding: 22px 20px; }
+    .page-title { font-size: 1.35rem; }
+  }
+
+  /* Large phone landscape / small tablet */
+  @media (max-width: 767px) {
+    .page-content { padding: 18px 16px; }
+    .page-header  { margin-bottom: 20px; }
+    .page-title   { font-size: 1.25rem; }
+  }
+
+  /* Small phone portrait */
+  @media (max-width: 480px) {
+    .page-content { padding: 14px 12px; }
+    .page-title   { font-size: 1.15rem; }
+    .page-sub     { font-size: .82rem; }
+
+    /* Bigger hamburger hit target */
+    .topbar button:first-child {
+      min-width: 44px; min-height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      margin-right: 8px;
+    }
+  }
+{% endblock %}
+
+{% block body %}
+<div class="app-wrap">
+
+  <!-- Sidebar overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark"><i class="bi bi-check2"></i></div>
+      <span class="brand-name">Taskify</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a class="nav-item {% if request.endpoint == 'index' %}active{% endif %}"
+         href="{{ url_for('index') }}">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+        <span>Dashboard</span>
+        {% if active_count is defined %}
+        <span class="nav-count">{{ active_count }}</span>
+        {% endif %}
+      </a>
+      <a class="nav-item {% if request.endpoint == 'profile' %}active{% endif %}"
+         href="{{ url_for('profile') }}">
+        <i class="bi bi-person-circle"></i>
+        <span>Profile</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar">{{ current_user.username[0].upper() }}</div>
+        <div>
+          <div class="user-name">{{ current_user.username }}</div>
+          <div class="user-role">Member</div>
+        </div>
+        <button class="theme-toggle ms-auto" onclick="toggleTheme()" title="Toggle theme"
+                style="margin-left:auto">
+          <i class="theme-icon bi {% if request.cookies.get('theme') == 'dark' %}bi-sun-fill{% else %}bi-moon-fill{% endif %}"></i>
+        </button>
+      </div>
+      <a class="sidebar-logout" href="{{ url_for('logout') }}">
+        <i class="bi bi-box-arrow-left"></i> Sign out
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main panel -->
+  <div class="main-panel">
+
+    <!-- Mobile topbar -->
+    <header class="topbar">
+      <button onclick="openSidebar()"
+              style="background:none;border:none;color:var(--txt);font-size:1.25rem;cursor:pointer;padding:4px;margin-right:12px">
+        <i class="bi bi-list"></i>
+      </button>
+      <a class="topbar-brand" href="{{ url_for('index') }}">
+        <div class="brand-mark" style="width:26px;height:26px;font-size:.8rem"><i class="bi bi-check2"></i></div>
+        Taskify
+      </a>
+      <button class="theme-toggle" onclick="toggleTheme()" style="margin-left:auto">
+        <i class="theme-icon bi bi-moon-fill"></i>
+      </button>
+    </header>
+
+    <!-- Content -->
+    <div class="page-content">
+      {% block content %}{% endblock %}
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebarOverlay').classList.add('open'); }
+  function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
+
+  // Sync theme icon on load
+  (function() {
+    const t = localStorage.getItem('theme') || 'light';
+    document.querySelectorAll('.theme-icon').forEach(el => {
+      el.className = 'theme-icon bi ' + (t === 'dark' ? 'bi-sun-fill' : 'bi-moon-fill');
+    });
+  })();
+</script>
+{% endblock %}

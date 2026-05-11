@@ -1,0 +1,406 @@
+{% extends 'app_base.html' %}
+{% block title %}Dashboard — Taskify{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* ── Stats row ──────────────────────────────────────────────── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px; margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 18px 20px;
+    box-shadow: var(--sh);
+    transition: box-shadow var(--trans);
+  }
+  .stat-card:hover { box-shadow: var(--sh-lg); }
+  .stat-num  { font-size: 2rem; font-weight: 800; line-height: 1; letter-spacing: -.5px; }
+  .stat-lbl  { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--txt-muted); margin-top: 5px; }
+  .prog-bar  { height: 4px; background: var(--border); border-radius: 99px; margin-top: 10px; overflow: hidden; }
+  .prog-fill { height: 100%; background: linear-gradient(90deg, var(--p), #a78bfa); border-radius: 99px; transition: width .6s ease; }
+
+  /* ── Toolbar ────────────────────────────────────────────────── */
+  .toolbar {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .filter-group {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 3px; gap: 2px;
+    box-shadow: var(--sh);
+  }
+  .ftab {
+    padding: 6px 14px;
+    border: none; border-radius: 6px;
+    background: transparent;
+    font-family: inherit; font-size: .8rem; font-weight: 600;
+    color: var(--txt-muted); cursor: pointer;
+    text-decoration: none; transition: all var(--trans);
+    white-space: nowrap;
+  }
+  .ftab:hover { color: var(--txt); background: var(--surface2); }
+  .ftab.active { background: var(--p); color: #fff; }
+
+  .search-wrap {
+    flex: 1; min-width: 180px; max-width: 340px;
+    position: relative;
+  }
+  .search-icon {
+    position: absolute; left: 11px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--txt-muted); font-size: .85rem;
+    pointer-events: none;
+  }
+  .search-input {
+    width: 100%; padding: 8px 12px 8px 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--txt); font-family: inherit; font-size: .875rem;
+    outline: none; box-shadow: var(--sh);
+    transition: border-color var(--trans), box-shadow var(--trans);
+  }
+  .search-input::placeholder { color: var(--txt-muted); }
+  .search-input:focus { border-color: var(--p); box-shadow: 0 0 0 3px var(--p-glow); }
+
+  .ml-auto { margin-left: auto; }
+
+  /* Header row */
+  .dash-header-row {
+    display: flex; align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px; flex-wrap: wrap;
+  }
+
+  /* ── Add task panel ─────────────────────────────────────────── */
+  .add-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--sh);
+    display: none;
+  }
+  .add-panel.open { display: block; animation: fadeUp .2s ease; }
+  .add-panel-title { font-size: .9rem; font-weight: 700; margin-bottom: 16px; color: var(--txt); }
+  .add-form-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .add-form-grid .field-full { grid-column: 1/-1; }
+
+  /* ── Task list ──────────────────────────────────────────────── */
+  .task-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .task-item {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 15px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid transparent;
+    border-radius: var(--r);
+    box-shadow: var(--sh);
+    transition: all var(--trans);
+    animation: fadeUp .25s ease both;
+  }
+  .task-item:hover { border-color: var(--border2); box-shadow: var(--sh-lg); transform: translateY(-1px); }
+  .task-item:hover { border-left-color: inherit; } /* keep priority colour */
+  .task-item.pri-high   { border-left-color: #ef4444; }
+  .task-item.pri-medium { border-left-color: #eab308; }
+  .task-item.pri-low    { border-left-color: #22c55e; }
+  .task-item.is-done    { opacity: .55; }
+  .task-item.is-done .task-title { text-decoration: line-through; color: var(--txt-muted); }
+
+  /* Checkbox */
+  .check-btn {
+    flex-shrink: 0; margin-top: 1px;
+    width: 20px; height: 20px;
+    border-radius: 6px;
+    border: 1.5px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    text-decoration: none; color: transparent;
+    transition: all var(--trans);
+  }
+  .check-btn:hover { border-color: var(--p); background: var(--p-light); }
+  .check-btn.checked { background: var(--p); border-color: var(--p); color: #fff; }
+
+  /* Content */
+  .task-body   { flex: 1; min-width: 0; }
+  .task-title  { font-size: .9rem; font-weight: 600; color: var(--txt); line-height: 1.4; }
+  .task-desc   { font-size: .8rem; color: var(--txt-sub); margin-top: 3px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .task-meta   { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+  .task-date   { font-size: .72rem; color: var(--txt-muted); display: flex; align-items: center; gap: 4px; }
+
+  /* Actions */
+  .task-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+  /* Empty */
+  .empty-state {
+    text-align: center; padding: 60px 24px;
+    background: var(--surface);
+    border: 1px dashed var(--border2);
+    border-radius: var(--r-lg);
+    color: var(--txt-muted);
+  }
+  .empty-icon { font-size: 2.8rem; opacity: .3; margin-bottom: 12px; display: block; }
+  .empty-title { font-size: 1rem; font-weight: 700; color: var(--txt-sub); margin-bottom: 5px; }
+  .empty-sub { font-size: .84rem; }
+
+  /* ── Responsive ─────────────────────────────────────────────── */
+
+  /* Tablet */
+  @media (max-width: 768px) {
+    .stats-row     { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .stat-num      { font-size: 1.7rem; }
+    .add-form-grid { grid-template-columns: 1fr; }
+
+    /* Page header: stack button below greeting */
+    .dash-header-row { flex-direction: column; align-items: stretch; }
+    .dash-header-row > .btn { justify-content: center; margin-top: 4px; }
+
+    /* Toolbar: filter row + search row */
+    .toolbar { flex-wrap: wrap; gap: 8px; }
+    .search-wrap { min-width: 0; max-width: 100%; flex: 1 1 100%; order: 3; }
+    .ml-auto { margin-left: 0; order: 4; width: 100%; }
+    .ml-auto .btn-danger { width: 100%; justify-content: center; }
+
+    /* Task meta: tighter */
+    .task-meta { gap: 6px; }
+  }
+
+  /* Large phone / landscape */
+  @media (max-width: 600px) {
+    .stats-row { gap: 8px; }
+    .stat-card { padding: 14px 16px; }
+    .stat-num  { font-size: 1.5rem; }
+
+    .add-panel { padding: 16px; }
+    .task-item { padding: 12px 14px; gap: 10px; }
+    .task-title { font-size: .875rem; }
+
+    /* Actions: icon-only on small screens */
+    .task-actions .btn-icon { width: 36px; height: 36px; }
+  }
+
+  /* Small phone portrait */
+  @media (max-width: 480px) {
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .stat-num  { font-size: 1.35rem; }
+    .stat-lbl  { font-size: .65rem; }
+
+    .filter-group { width: 100%; }
+    .ftab { flex: 1; text-align: center; padding: 7px 8px; }
+
+    .search-wrap { order: 2; flex: 1 1 100%; }
+    .ml-auto     { order: 3; }
+
+    .task-item { flex-wrap: nowrap; }
+    .task-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .task-actions { flex-direction: column; gap: 3px; }
+    .task-actions .btn-icon { width: 32px; height: 32px; font-size: .75rem; }
+  }
+
+  /* Extra small */
+  @media (max-width: 360px) {
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .page-content { padding: 12px 10px; }
+    .task-item { padding: 10px 12px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="page-header">
+  <div class="dash-header-row">
+    <div>
+      <h1 class="page-title">
+        {% if now.hour < 12 %}Good morning{% elif now.hour < 17 %}Good afternoon{% else %}Good evening{% endif %},
+        {{ current_user.username }}.
+      </h1>
+      <p class="page-sub">
+        {% if active == 0 and total == 0 %}No tasks yet — add one to get started.
+        {% elif active == 0 %}All tasks completed. Great work.
+        {% elif active == 1 %}1 active task remaining.
+        {% else %}{{ active }} active tasks remaining.{% endif %}
+      </p>
+    </div>
+    <button class="btn btn-primary" onclick="toggleAddPanel()" id="addToggleBtn">
+      <i class="bi bi-plus"></i> New task
+    </button>
+  </div>
+</div>
+
+<!-- Stats -->
+{% if total > 0 %}
+<div class="stats-row fade-up">
+  <div class="stat-card">
+    <div class="stat-num" style="color:var(--p)">{{ total }}</div>
+    <div class="stat-lbl">Total</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#eab308">{{ active }}</div>
+    <div class="stat-lbl">Active</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#22c55e">{{ done }}</div>
+    <div class="stat-lbl">Completed</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:var(--p)">{{ ((done/total)*100)|int }}%</div>
+    <div class="stat-lbl">Progress</div>
+    <div class="prog-bar"><div class="prog-fill" style="width:{{ ((done/total)*100)|int }}%"></div></div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Add task panel (collapsed by default) -->
+<div class="add-panel" id="addPanel">
+  <div class="add-panel-title"><i class="bi bi-plus-circle" style="color:var(--p);margin-right:6px"></i>New task</div>
+  <form method="POST" action="{{ url_for('index') }}">
+    <div class="add-form-grid">
+      <div class="field field-full">
+        <label>Title *</label>
+        <input type="text" name="title" class="input" placeholder="What needs to be done?" required maxlength="200" autocomplete="off">
+      </div>
+      <div class="field field-full">
+        <label>Description <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--txt-muted)">(optional)</span></label>
+        <textarea name="description" class="textarea" rows="2" placeholder="Add notes…"></textarea>
+      </div>
+      <div class="field">
+        <label>Priority</label>
+        <select name="priority" class="select">
+          <option value="low">Low priority</option>
+          <option value="medium" selected>Medium priority</option>
+          <option value="high">High priority</option>
+        </select>
+      </div>
+      <div class="field" style="display:flex;align-items:flex-end;gap:8px">
+        <button type="submit" class="btn btn-primary" style="flex:1">
+          <i class="bi bi-plus"></i> Add task
+        </button>
+        <button type="button" class="btn btn-ghost" onclick="toggleAddPanel()">Cancel</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar fade-up">
+  <div class="filter-group">
+    <a class="ftab {% if sf == 'all' %}active{% endif %}" href="{{ url_for('index', s='all', q=search) }}">
+      All&thinsp;<span style="opacity:.6">{{ total }}</span>
+    </a>
+    <a class="ftab {% if sf == 'active' %}active{% endif %}" href="{{ url_for('index', s='active', q=search) }}">Active</a>
+    <a class="ftab {% if sf == 'done' %}active{% endif %}" href="{{ url_for('index', s='done', q=search) }}">Done</a>
+  </div>
+
+  <form class="search-wrap" method="GET" action="{{ url_for('index') }}" id="searchForm">
+    <input type="hidden" name="s" value="{{ sf }}">
+    <i class="bi bi-search search-icon"></i>
+    <input type="text" name="q" id="searchInput" class="search-input"
+           placeholder="Search tasks…" value="{{ search }}" autocomplete="off">
+  </form>
+
+  {% if done > 0 %}
+  <form method="POST" action="{{ url_for('clear_done') }}"
+        onsubmit="return confirm('Remove all completed tasks?')" class="ml-auto">
+    <button type="submit" class="btn btn-danger btn-sm">
+      <i class="bi bi-trash"></i> Clear done
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+<!-- Task list -->
+<div class="task-list">
+  {% if todos %}
+    {% for t in todos %}
+    <div class="task-item pri-{{ t.priority }} {% if t.completed %}is-done{% endif %} fade-up"
+         style="animation-delay:{{ loop.index0 * 0.03 }}s">
+
+      <a href="{{ url_for('toggle', tid=t.id) }}"
+         class="check-btn {% if t.completed %}checked{% endif %}"
+         title="{{ 'Mark active' if t.completed else 'Mark complete' }}">
+        {% if t.completed %}<i class="bi bi-check2" style="font-size:.7rem"></i>{% endif %}
+      </a>
+
+      <div class="task-body">
+        <div class="task-title">{{ t.title }}</div>
+        {% if t.description %}<div class="task-desc">{{ t.description }}</div>{% endif %}
+        <div class="task-meta">
+          <span class="task-date"><i class="bi bi-calendar3"></i>{{ t.date_created.strftime('%b %d, %Y') }}</span>
+          <span class="badge badge-{{ t.priority }}">{{ t.priority }}</span>
+          {% if t.completed %}<span style="font-size:.72rem;color:var(--success);font-weight:600"><i class="bi bi-check2-circle"></i> Done</span>{% endif %}
+        </div>
+      </div>
+
+      <div class="task-actions">
+        <a href="{{ url_for('edit', tid=t.id) }}" class="btn btn-ghost btn-icon" title="Edit">
+          <i class="bi bi-pencil" style="font-size:.8rem"></i>
+        </a>
+        <a href="{{ url_for('delete', tid=t.id) }}"
+           class="btn btn-danger btn-icon" title="Delete"
+           onclick="return confirm('Delete this task?')">
+          <i class="bi bi-trash" style="font-size:.8rem"></i>
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="empty-state fade-up">
+    <span class="empty-icon">
+      {% if search %}<i class="bi bi-search"></i>
+      {% elif sf == 'done' %}<i class="bi bi-check2-all"></i>
+      {% elif sf == 'active' %}<i class="bi bi-party-popper"></i>
+      {% else %}<i class="bi bi-inbox"></i>{% endif %}
+    </span>
+    <div class="empty-title">
+      {% if search %}No results for "{{ search }}"
+      {% elif sf == 'done' %}No completed tasks yet
+      {% elif sf == 'active' %}All done — nothing active
+      {% else %}No tasks yet{% endif %}
+    </div>
+    <div class="empty-sub">
+      {% if search %}<a href="{{ url_for('index') }}" style="color:var(--p);font-weight:600">Clear search</a>
+      {% else %}Click <strong>New task</strong> above to add your first one.{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  // Add panel toggle
+  function toggleAddPanel() {
+    const panel = document.getElementById('addPanel');
+    const btn   = document.getElementById('addToggleBtn');
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) {
+      btn.innerHTML = '<i class="bi bi-x"></i> Cancel';
+      panel.querySelector('input[name="title"]').focus();
+    } else {
+      btn.innerHTML = '<i class="bi bi-plus"></i> New task';
+    }
+  }
+
+  // Debounced search
+  const si = document.getElementById('searchInput');
+  let st;
+  si.addEventListener('input', () => {
+    clearTimeout(st);
+    st = setTimeout(() => si.closest('form').submit(), 400);
+  });
+</script>
+{% endblock %}
