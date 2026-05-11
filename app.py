@@ -1,6 +1,6 @@
 import os
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date as date_cls
 
 def utcnow():
     return datetime.now(timezone.utc)
@@ -53,6 +53,7 @@ class TodoItem(db.Model):
     description = db.Column(db.Text, nullable=True)
     completed = db.Column(db.Boolean, default=False, nullable=False)
     priority = db.Column(db.String(10), default='medium', nullable=False)
+    due_date = db.Column(db.Date, nullable=True)
     date_created = db.Column(db.DateTime, default=utcnow)
     date_updated = db.Column(db.DateTime, default=utcnow,
                              onupdate=utcnow)
@@ -95,6 +96,14 @@ def index():
         description = request.form.get('description', '').strip()
         priority = request.form.get('priority', 'medium')
 
+        due_date_str = request.form.get('due_date', '').strip()
+        due_date = None
+        if due_date_str:
+            try:
+                due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+
         if not title:
             flash('Task title cannot be empty.', 'danger')
             return redirect(url_for('index'))
@@ -106,7 +115,8 @@ def index():
 
         db.session.add(TodoItem(
             title=title, description=description,
-            priority=priority, user_id=current_user.id
+            priority=priority, due_date=due_date,
+            user_id=current_user.id
         ))
         db.session.commit()
         flash('Task created.', 'success')
@@ -121,10 +131,18 @@ def index():
             TodoItem.title.ilike(f'%{search}%'),
             TodoItem.description.ilike(f'%{search}%'),
         ))
+    today = utcnow().date()
+
     if status_filter == 'active':
         query = query.filter_by(completed=False)
     elif status_filter == 'done':
         query = query.filter_by(completed=True)
+    elif status_filter == 'overdue':
+        query = query.filter(
+            TodoItem.completed == False,
+            TodoItem.due_date < today,
+            TodoItem.due_date.isnot(None)
+        )
 
     todos = query.order_by(
         TodoItem.completed.asc(), TodoItem.date_created.desc()
@@ -134,10 +152,23 @@ def index():
     total = base.count()
     done = base.filter_by(completed=True).count()
 
+    due_today = (TodoItem.query
+                 .filter_by(user_id=current_user.id, completed=False)
+                 .filter(TodoItem.due_date == today)
+                 .all())
+    overdue_count = (TodoItem.query
+                     .filter_by(user_id=current_user.id, completed=False)
+                     .filter(TodoItem.due_date < today,
+                             TodoItem.due_date.isnot(None))
+                     .count())
+
     return render_template('dashboard.html',
                            todos=todos, total=total,
                            done=done, active=total - done,
-                           search=search, sf=status_filter)
+                           search=search, sf=status_filter,
+                           due_today=due_today,
+                           overdue_count=overdue_count,
+                           today=today)
 
 
 @app.route('/toggle/<int:tid>')
@@ -178,6 +209,14 @@ def edit(tid):
         description = request.form.get('description', '').strip()
         priority = request.form.get('priority', 'medium')
 
+        due_date_str = request.form.get('due_date', '').strip()
+        due_date = None
+        if due_date_str:
+            try:
+                due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+
         if not title:
             flash('Title cannot be empty.', 'danger')
             return redirect(url_for('edit', tid=tid))
@@ -187,6 +226,7 @@ def edit(tid):
         todo.title = title
         todo.description = description
         todo.priority = priority
+        todo.due_date = due_date
         todo.date_updated = utcnow()
         db.session.commit()
         flash('Task updated.', 'success')

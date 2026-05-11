@@ -142,6 +142,62 @@
   /* Actions */
   .task-actions { display: flex; gap: 4px; flex-shrink: 0; }
 
+  /* ── Due-today notification ─────────────────────────────────── */
+  .due-banner {
+    display: flex; align-items: flex-start; gap: 14px;
+    background: linear-gradient(135deg, rgba(234,179,8,.12) 0%, rgba(239,68,68,.08) 100%);
+    border: 1px solid rgba(234,179,8,.4);
+    border-left: 4px solid #eab308;
+    border-radius: var(--r);
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    animation: fadeUp .25s ease both;
+  }
+  .due-banner-icon {
+    font-size: 1.2rem; color: #eab308; flex-shrink: 0; margin-top: 1px;
+  }
+  .due-banner-body { flex: 1; min-width: 0; }
+  .due-banner-title {
+    font-size: .875rem; font-weight: 700; color: var(--txt); margin-bottom: 6px;
+  }
+  .due-banner-list {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .due-chip {
+    font-size: .75rem; font-weight: 600;
+    background: rgba(234,179,8,.15);
+    color: #92400e;
+    border: 1px solid rgba(234,179,8,.3);
+    border-radius: 99px;
+    padding: 3px 10px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 220px;
+  }
+  [data-theme="dark"] .due-chip { color: #fde68a; }
+  .due-banner-close {
+    background: none; border: none; color: var(--txt-muted);
+    cursor: pointer; font-size: 1rem; flex-shrink: 0;
+    padding: 0; line-height: 1;
+    transition: color var(--trans);
+  }
+  .due-banner-close:hover { color: var(--txt); }
+
+  /* ── Due date badge on cards ────────────────────────────────── */
+  .due-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: .72rem; font-weight: 600;
+    padding: 2px 8px; border-radius: 99px;
+    border: 1px solid;
+  }
+  .due-badge.is-today  { color: #92400e; background: rgba(234,179,8,.15); border-color: rgba(234,179,8,.4); }
+  .due-badge.is-overdue{ color: #991b1b; background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35); }
+  .due-badge.is-future { color: var(--txt-muted); background: var(--surface2); border-color: var(--border); }
+  [data-theme="dark"] .due-badge.is-today   { color: #fde68a; }
+  [data-theme="dark"] .due-badge.is-overdue { color: #fca5a5; }
+
+  /* Overdue task: subtle red tint on left border */
+  .task-item.is-overdue-task { border-left-color: #ef4444 !important; }
+
   /* Empty */
   .empty-state {
     text-align: center; padding: 60px 24px;
@@ -263,6 +319,26 @@
 </div>
 {% endif %}
 
+<!-- Due-today notification banner -->
+{% if due_today %}
+<div class="due-banner" id="dueBanner">
+  <div class="due-banner-icon"><i class="bi bi-bell-fill"></i></div>
+  <div class="due-banner-body">
+    <div class="due-banner-title">
+      {{ due_today|length }} task{{ 's' if due_today|length > 1 else '' }} due today
+    </div>
+    <div class="due-banner-list">
+      {% for t in due_today %}
+      <span class="due-chip" title="{{ t.title }}">{{ t.title }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  <button class="due-banner-close" onclick="dismissDueBanner()" title="Dismiss">
+    <i class="bi bi-x-lg"></i>
+  </button>
+</div>
+{% endif %}
+
 <!-- Add task panel (collapsed by default) -->
 <div class="add-panel" id="addPanel">
   <div class="add-panel-title"><i class="bi bi-plus-circle" style="color:var(--p);margin-right:6px"></i>New task</div>
@@ -284,6 +360,10 @@
           <option value="high">High priority</option>
         </select>
       </div>
+      <div class="field">
+        <label>Due date <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--txt-muted)">(optional)</span></label>
+        <input type="date" name="due_date" class="input">
+      </div>
       <div class="field" style="display:flex;align-items:flex-end;gap:8px">
         <button type="submit" class="btn btn-primary" style="flex:1">
           <i class="bi bi-plus"></i> Add task
@@ -302,6 +382,12 @@
     </a>
     <a class="ftab {% if sf == 'active' %}active{% endif %}" href="{{ url_for('index', s='active', q=search) }}">Active</a>
     <a class="ftab {% if sf == 'done' %}active{% endif %}" href="{{ url_for('index', s='done', q=search) }}">Done</a>
+    {% if overdue_count > 0 or sf == 'overdue' %}
+    <a class="ftab {% if sf == 'overdue' %}active{% endif %}" href="{{ url_for('index', s='overdue', q=search) }}"
+       style="{% if sf != 'overdue' %}color:#ef4444{% endif %}">
+      Overdue&thinsp;<span style="opacity:.8">{{ overdue_count }}</span>
+    </a>
+    {% endif %}
   </div>
 
   <form class="search-wrap" method="GET" action="{{ url_for('index') }}" id="searchForm">
@@ -325,7 +411,7 @@
 <div class="task-list">
   {% if todos %}
     {% for t in todos %}
-    <div class="task-item pri-{{ t.priority }} {% if t.completed %}is-done{% endif %} fade-up"
+    <div class="task-item pri-{{ t.priority }} {% if t.completed %}is-done{% elif t.due_date and t.due_date < today %}is-overdue-task{% endif %} fade-up"
          style="animation-delay:{{ loop.index0 * 0.03 }}s">
 
       <a href="{{ url_for('toggle', tid=t.id) }}"
@@ -340,6 +426,17 @@
         <div class="task-meta">
           <span class="task-date"><i class="bi bi-calendar3"></i>{{ t.date_created.strftime('%b %d, %Y') }}</span>
           <span class="badge badge-{{ t.priority }}">{{ t.priority }}</span>
+          {% if t.due_date and not t.completed %}
+            {% if t.due_date < today %}
+              <span class="due-badge is-overdue"><i class="bi bi-exclamation-circle-fill"></i> Overdue · {{ t.due_date.strftime('%b %d') }}</span>
+            {% elif t.due_date == today %}
+              <span class="due-badge is-today"><i class="bi bi-bell-fill"></i> Due today</span>
+            {% else %}
+              <span class="due-badge is-future"><i class="bi bi-calendar-event"></i> {{ t.due_date.strftime('%b %d') }}</span>
+            {% endif %}
+          {% elif t.due_date and t.completed %}
+            <span class="due-badge is-future"><i class="bi bi-calendar-event"></i> {{ t.due_date.strftime('%b %d') }}</span>
+          {% endif %}
           {% if t.completed %}<span style="font-size:.72rem;color:var(--success);font-weight:600"><i class="bi bi-check2-circle"></i> Done</span>{% endif %}
         </div>
       </div>
@@ -382,6 +479,19 @@
 
 {% block scripts_extra %}
 <script>
+  // Due banner dismiss (persists for the browser session)
+  (function() {
+    const key = 'dueBannerDismissed_{{ today }}';
+    const banner = document.getElementById('dueBanner');
+    if (banner && sessionStorage.getItem(key)) banner.remove();
+  })();
+  function dismissDueBanner() {
+    const key = 'dueBannerDismissed_{{ today }}';
+    sessionStorage.setItem(key, '1');
+    const b = document.getElementById('dueBanner');
+    if (b) { b.style.transition = 'opacity .2s'; b.style.opacity = '0'; setTimeout(() => b.remove(), 200); }
+  }
+
   // Add panel toggle
   function toggleAddPanel() {
     const panel = document.getElementById('addPanel');

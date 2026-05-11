@@ -75,13 +75,19 @@
         <textarea name="description" class="textarea" rows="4">{{ todo.description or '' }}</textarea>
       </div>
 
-      <div class="field" style="margin-bottom:24px">
+      <div class="field">
         <label>Priority</label>
         <select name="priority" class="select">
           <option value="low"    {% if todo.priority == 'low'    %}selected{% endif %}>Low priority</option>
           <option value="medium" {% if todo.priority == 'medium' %}selected{% endif %}>Medium priority</option>
           <option value="high"   {% if todo.priority == 'high'   %}selected{% endif %}>High priority</option>
         </select>
+      </div>
+
+      <div class="field" style="margin-bottom:24px">
+        <label>Due date <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--txt-muted)">(optional)</span></label>
+        <input type="date" name="due_date" class="input"
+               value="{{ todo.due_date.strftime('%Y-%m-%d') if todo.due_date else '' }}">
       </div>
 
       <div class="edit-actions">
