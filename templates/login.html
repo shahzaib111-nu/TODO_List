@@ -18,11 +18,18 @@
              required autocomplete="username">
     </div>
 
-    <div class="field" style="margin-bottom:8px">
+    <div class="field password-field" style="margin-bottom:8px">
       <label>Password</label>
-      <input type="password" name="password" class="input"
-             placeholder="Your password"
-             required autocomplete="current-password">
+      <div class="password-input-wrap">
+        <input type="password" name="password" id="loginPassword" class="input"
+               placeholder="Your password"
+               required autocomplete="current-password">
+        <button type="button" class="password-toggle"
+                onclick="togglePasswordField('loginPassword', this)"
+                aria-label="Show password">
+          show
+        </button>
+      </div>
     </div>
 
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:22px">

@@ -80,6 +80,52 @@
     box-shadow: var(--sh);
   }
 
+  .auth-card .input {
+    height: 56px;
+    padding: 0 20px;
+  }
+
+  .password-field {
+    margin-bottom: 18px;
+  }
+  .password-input-wrap {
+    position: relative;
+    width: 100%;
+  }
+  .password-input-wrap .input {
+    padding: 0 76px 0 20px;
+  }
+  .password-toggle {
+    appearance: none;
+    -webkit-appearance: none;
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 36px;
+    border: 0;
+    background: transparent;
+    color: var(--txt-muted);
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    line-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .8rem;
+    font-weight: 700;
+    font-family: inherit;
+    z-index: 1;
+  }
+  .password-toggle:hover { color: var(--txt-sub); }
+  .password-toggle:focus-visible {
+    outline: 2px solid var(--p);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
   .auth-divider {
     text-align: center; font-size: .8rem;
     color: var(--txt-muted); margin: 20px 0;
@@ -190,5 +236,17 @@
       el.className = 'theme-icon bi ' + (t === 'dark' ? 'bi-sun-fill' : 'bi-moon-fill');
     });
   })();
+
+  function togglePasswordField(inputId, button) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    const isHidden = input.type === 'password';
+    input.type = isHidden ? 'text' : 'password';
+
+    button.textContent = isHidden ? 'hide' : 'show';
+
+    button.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+  }
 </script>
 {% endblock %}

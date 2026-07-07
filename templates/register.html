@@ -19,20 +19,34 @@
              autocomplete="username">
     </div>
 
-    <div class="field">
+    <div class="field password-field">
       <label>Password</label>
-      <input type="password" name="password" id="pw" class="input"
-             placeholder="At least 8 characters"
-             required minlength="8"
-             autocomplete="new-password">
+      <div class="password-input-wrap">
+        <input type="password" name="password" id="pw" class="input"
+               placeholder="At least 8 characters"
+               required minlength="8"
+               autocomplete="new-password">
+        <button type="button" class="password-toggle"
+                onclick="togglePasswordField('pw', this)"
+                aria-label="Show password">
+          show
+        </button>
+      </div>
     </div>
 
-    <div class="field" style="margin-bottom:24px">
+    <div class="field password-field" style="margin-bottom:24px">
       <label>Confirm password</label>
-      <input type="password" name="confirm_password" id="cpw" class="input"
-             placeholder="Repeat your password"
-             required
-             autocomplete="new-password">
+      <div class="password-input-wrap">
+        <input type="password" name="confirm_password" id="cpw" class="input"
+               placeholder="Repeat your password"
+               required
+               autocomplete="new-password">
+        <button type="button" class="password-toggle"
+                onclick="togglePasswordField('cpw', this)"
+                aria-label="Show password">
+          show
+        </button>
+      </div>
     </div>
 
     <button type="submit" class="btn btn-primary btn-w">
